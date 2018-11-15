@@ -1,4 +1,4 @@
-# Project: Navigation
+# Project: Tennis (Collaboration and Competition)
 
 ## Project Details
 

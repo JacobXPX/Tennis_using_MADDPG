@@ -10,6 +10,13 @@ def MSG(txt):
 from maddpg_agents import DDPGAgent, MADDPG
 
 def maddpg(env, agents, n_episodes=3500, max_t=2000, print_every=100):
+    """
+    Params
+    ======
+        n_episodes (int): maximum number of training episodes
+        max_t (int): maximum number of timesteps per episode
+        print_every (int): number of episodes to print result
+    """
     MSG('start!')
     brain_name = env.brain_names[0]
     scores_deque = deque(maxlen=print_every)
@@ -22,15 +29,15 @@ def maddpg(env, agents, n_episodes=3500, max_t=2000, print_every=100):
         agents.reset()
         agent_scores = np.zeros(len(agents.maddpg_agent))
         for t in range(max_t):
-            action_tuple = agents.act(obs_tuple)                    # select an action (for each agent)
-            env_info = env.step(action_tuple)[brain_name]           # send all actions to tne environment
-            next_obs_tuple = env_info.vector_observations           # get next state (for each agent)
-            reward_tuple = env_info.rewards                         # get reward (for each agent)
-            done_tuple = env_info.local_done                        # see if episode finished
+            action_tuple = agents.act(obs_tuple)
+            env_info = env.step(action_tuple)[brain_name]
+            next_obs_tuple = env_info.vector_observations
+            reward_tuple = env_info.rewards
+            done_tuple = env_info.local_done
             agent_scores += reward_tuple
             agents.step(obs_tuple, action_tuple, reward_tuple, next_obs_tuple, done_tuple)
-            obs_tuple = next_obs_tuple                              # roll over states to next time step
-            if np.any(done_tuple):                                  # exit loop if episode finished
+            obs_tuple = next_obs_tuple
+            if np.any(done_tuple):
                 break
         score, idx = np.max(agent_scores), np.argmax(agent_scores)
         scores_deque.append(score)

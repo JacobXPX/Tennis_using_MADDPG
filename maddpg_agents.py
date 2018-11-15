@@ -9,16 +9,16 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 
-BUFFER_SIZE = int(1e6)  # replay buffer size
+BUFFER_SIZE = int(1e6)   # replay buffer size
 BATCH_SIZE = 1024        # minibatch size
-GAMMA = 0.99            # discount factor
-TAU = 1e-3              # for soft update of target parameters
-LR_ACTOR = 1e-3         # learning rate of the actor
-LR_CRITIC = 1e-3        # learning rate of the critic
-WEIGHT_DECAY = 1e-5        # L2 weight decay
+GAMMA = 0.99             # discount factor
+TAU = 1e-3               # for soft update of target parameters
+LR_ACTOR = 1e-3          # learning rate of the actor
+LR_CRITIC = 1e-3         # learning rate of the critic
+WEIGHT_DECAY = 1e-5      # L2 weight decay
 UPDATE_EVERY = 100       # how often to update the network
-LEARN_TIMES = 50        # how many times to learn each avtive step
-NOISE_REDUCE = 0.9997
+LEARN_TIMES = 50         # how many times to learn each avtive step
+NOISE_REDUCE = 0.9997    # reduce factor of noise in action
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -50,6 +50,7 @@ class MADDPG:
             ddpg_agent.noise.reset()
 
     def denoise(self, noise_reduce):
+        """Reduce the noise in action"""
         for ddpg_agent in self.maddpg_agent:
             ddpg_agent.noise.scale = ddpg_agent.noise.scale * noise_reduce
 
@@ -64,7 +65,6 @@ class MADDPG:
         Params
         ======
             obs_tuple, actions_tuple, rewards_tuple, next_obs_tuple, dones_tuple: s, a, r, s', done tuples from environment
-            agent_x (int): agent index
         """
         # Save 
         transition = obs_tuple, actions_tuple, rewards_tuple, next_obs_tuple, dones_tuple
@@ -103,7 +103,6 @@ class MADDPG:
         for i in range(len(self.maddpg_agent)):
             agent = self.maddpg_agent[i]
             reward = [re[i] for re in rewards_tuple]
-            next_obs = [next_ob[i] for next_ob in next_obs_tuple]
             
             done = [do[i] for do in dones_tuplet]
             experiences = [transpose_obs_tuple, state, action, reward, next_state, done, target_actions]
@@ -112,12 +111,13 @@ class MADDPG:
 
     def single_learn(self, agent, experiences, gamma, agent_number):
         """Update policy and value parameters using given batch of experience tuples for an agent.
-            critic loss = batch mean of (y- Q(s,a) from target network)^2
-            y = reward of this timestep + discount * Q(st+1,at+1) from target network
+           critic loss = batch mean of (y- Q(s,a) from target network)^2
+           y = reward of this timestep + discount * Q(st+1,at+1) from target network
 
         Params
         ======
-            experiences (Tuple): tuple of (s, a, r, s', done) tuples 
+            agent (object): the agent to learn in this turn
+            experiences (Tuple): tuple of (st, s, a, ri, s', done, a') tuples 
             gamma (float): discount factor
         """
         state, action, reward, next_state, done = map(self.transpose_to_tensor, experiences[1:-1])
@@ -137,8 +137,8 @@ class MADDPG:
         action = action.to(device)
         state = state.to(device)
         Q_expected = agent.critic_local(state, action)
-        # Compute critic loss
 
+        # Compute critic loss
         huber_loss = torch.nn.SmoothL1Loss()
         critic_loss = huber_loss(Q_expected, Q_targets.detach())
         critic_loss.backward()
@@ -210,6 +210,7 @@ class DDPGAgent:
         return np.squeeze(np.clip(action, -1, 1),axis=0)
 
     def target_act(self, obs):
+        """get target network actions from the agent in the MADDPG object """
         obs = torch.from_numpy(np.expand_dims(obs,0)).float().to(device)
         action = self.actor_target(obs)
         return action
@@ -266,7 +267,6 @@ class ReplayBuffer:
 
     def push(self, transition):
         """push into the buffer"""
-        
         input_to_buffer = self.transpose_list(transition)
         self.deque.append(transition)
 
